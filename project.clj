@@ -4,12 +4,12 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.5.0"]
-                 [org.clojure/tools.logging "0.2.6"]]
+                 [org.clojure/tools.logging "0.2.6"]
+                 [aleph "0.3.0-beta7"]]
   :jvm-opts ["-server" "-XX:+UseConcMarkSweepGC" "-Xmx4g"]
   :test-selectors {:default #(not (some #{:benchmark :redis}
                                         (cons (:tag %) (keys %))))
                    :integration :redis
                    :benchmark :benchmark
                    :all (constantly true)}
-  :main ratis.core
-  :warn-on-reflection true)
+  :main ratis.core)
