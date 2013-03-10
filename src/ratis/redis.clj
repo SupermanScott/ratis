@@ -1,10 +1,16 @@
 (ns ratis.redis
   (:require
+   [clojure.tools.logging :as log]
    [aleph.redis.protocol :as proto]
    [clojure.string :as str]
    [gloss.io]
+   [gloss.core]
    [aleph.tcp]
    [lamina.core]))
+
+(defn redis-codec [charset]
+  (let [codecs (proto/codec-map charset)]
+    (gloss.core/compile-frame (gloss.core/header proto/format-byte codecs first))))
 
 (def redis-codec (proto/redis-codec :utf-8))
 
@@ -69,6 +75,7 @@
                   "ZREMRANGEBYRANK"
                   "ZREMRANGEBYSCORE"
                   "ZUNIONSTORE"})
+
 (defn parse-buffer
   "Returns a sequence of the command parameters"
   [command-buffer]
@@ -84,5 +91,16 @@
   [host port cmd]
   (let [ch (lamina.core/wait-for-result
             (aleph.tcp/tcp-client {:host host :port port :frame redis-codec}))]
+    (log/info "cmd is" cmd)
     (lamina.core/enqueue ch cmd)
-    (lamina.core/wait-for-message ch)))
+    (let [response [(lamina.core/wait-for-message ch)]]
+      (log/info "response is " response)
+      response)))
+
+(defn redis-handler
+  "Responsible for listening for commands and sending to the proper machine"
+  [ch client-info]
+  (lamina.core/receive-all ch
+                           #(lamina.core/enqueue ch
+                                                 (send-to-redis
+                                                  "localhost" 6379 %))))

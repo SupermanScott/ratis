@@ -1,7 +1,9 @@
 (ns ratis.core
+  (:require [ratis.redis :as redis]
+            [aleph.tcp])
   (:gen-class))
 
 (defn -main
-  "I don't do a whole lot ... yet."
+  "Start up the proxy server"
   [& args]
-  (println "Hello, World!"))
+  (aleph.tcp/start-tcp-server redis/redis-handler {:port 10000 :frame redis/redis-codec}))
