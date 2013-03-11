@@ -119,11 +119,8 @@
   [host port cmd]
   (let [ch (lamina.core/wait-for-result
             (aleph.tcp/tcp-client {:host host :port port :frame redis-codec}))]
-    (log/info "cmd is" cmd)
-    (println "cmd is" cmd)
     (lamina.core/enqueue ch cmd)
     (let [response [(lamina.core/wait-for-message ch)]]
-      (log/info "response is " response)
       (if (= 1 (count response)) (first response)
           response))))
 
