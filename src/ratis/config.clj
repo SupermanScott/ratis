@@ -1,5 +1,6 @@
 (ns ratis.config
-  (:require [clj-yaml.core :as yaml]))
+  (:require [clj-yaml.core :as yaml]
+            [ratis.routing :as routing]))
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
 (defrecord Server [host port priority])
@@ -20,18 +21,7 @@
     pool))
 
 (defn start-handlers
-  "Starts the handlers defined in the configuration file provided"
+  "Starts the handlers defined in the configuration file in path"
   [path]
   (let [config (generate-config path)]
-          (loop [pools (keys config)
-                 pool (get pools (first pools))
-                 port (:port pool)
-                 server_retry_timeout (get pool :server_retry_timeout 1000)
-                 server_failure_limit (get pool :server_failure_limit 1)]
-            (Pool. server_retry_timeout server_failure_limit [])
-            (recur (rest pools)
-                   (get pools (first pools))
-                   (:port pool)
-                   (get pool :server_retry_timeout 1000)
-                   (get pool :server_failure_limit 1)))
-    ))
+    (map #(start-handler (% config)) (keys config))))
