@@ -123,11 +123,3 @@
     (let [response [(lamina.core/wait-for-message ch)]]
       (if (= 1 (count response)) (first response)
           response))))
-
-(defn redis-handler
-  "Responsible for listening for commands and sending to the proper machine"
-  [ch client-info]
-  (lamina.core/receive-all ch
-                           #(lamina.core/enqueue ch
-                                                 (send-to-redis
-                                                  "localhost" 6379 %))))
