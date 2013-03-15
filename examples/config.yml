@@ -1,5 +1,5 @@
 alpha-pool:
-  port: 1000
+  port: 10000
   server_retry_timeout: 2000
   server_failure_limit: 1
   servers:

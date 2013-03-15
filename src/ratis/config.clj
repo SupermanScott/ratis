@@ -1,6 +1,9 @@
 (ns ratis.config
   (:require [clj-yaml.core :as yaml]
-            [ratis.routing :as routing]))
+            [aleph.tcp]
+            [ratis.routing :as routing]
+            [ratis.redis :as redis]
+            ))
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
 (defrecord Server [host port priority])
@@ -17,8 +20,9 @@
                      (get pool-map :servers []))
         server_retry_timeout (:server_retry_timeout pool-map)
         server_failure_limit (:server_failure_limit pool-map)
-        pool (Pool. server_retry_timeout server_failure_limit servers)]
-    pool))
+        pool (Pool. server_retry_timeout server_failure_limit servers)
+        config {:port (:port pool-map) :frame redis/redis-codec}]
+    (aleph.tcp/start-tcp-server routing/redis-handler config)))
 
 (defn start-handlers
   "Starts the handlers defined in the configuration file in path"
