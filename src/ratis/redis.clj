@@ -112,7 +112,7 @@
 (defn master-only-command
   "Returns true / false if the command is for master only"
   [cmd]
-  (contains? master-only (str/upper-case (first cmd))))
+  (contains? master-only (->> cmd second first second str/upper-case)))
 
 (defn send-to-redis-and-respond
   "Sends the command to the specified host and returns the response"
