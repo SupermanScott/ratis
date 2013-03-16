@@ -114,15 +114,15 @@
   [cmd]
   (contains? master-only (str/upper-case (first cmd))))
 
-(defn send-to-redis
+(defn send-to-redis-and-respond
   "Sends the command to the specified host and returns the response"
-  [host port cmd]
+  [host port cmd receiver]
   (log/info "Received command" cmd)
   (let [ch (lamina.core/wait-for-result
             (aleph.tcp/tcp-client {:host host :port port :frame redis-codec}))]
     (lamina.core/enqueue ch cmd)
-    (let [response [(lamina.core/wait-for-message ch)]]
+    (lamina.core/receive ch (fn [response]
       (log/info "Command processed" cmd)
       (lamina.core/close ch)
-      (if (= 1 (count response)) (first response)
-          response))))
+      (if (= 1 (count response)) (lamina.core/enqueue receiver (first response))
+          (lamina.core/enqueue receiver response))))))
