@@ -10,4 +10,6 @@
   "Start up the proxy server"
   [& args]
   (let [running-pools (config/start-handlers "examples/config.yml")]
-    (log/info "Running" (count running-pools))))
+    (log/info "Running" (count running-pools))
+    (log/info "first" (->> running-pools first :servers))
+    (dorun (map #(send-off % routing/update-server-state)))))

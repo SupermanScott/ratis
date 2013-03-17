@@ -30,3 +30,11 @@
   [path]
   (let [config (generate-config path)]
     (map #(start-handler (% config)) (keys config))))
+
+(defn update-server-state
+  "Queries the *agent* server for its current state and updates itself"
+  [server]
+  (. Thread (sleep 1000))
+  (when true
+    (send-off *agent* #'update-server-state))
+  (routing/query-server-state (:host server) (:port server)))

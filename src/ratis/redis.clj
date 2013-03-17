@@ -126,3 +126,8 @@
       (lamina.core/close ch)
       (if (= 1 (count response)) (lamina.core/enqueue receiver (first response))
           (lamina.core/enqueue receiver response))))))
+
+(defn query-server-state
+  "Returns the map of the server's current state"
+  [host port]
+  nil)
