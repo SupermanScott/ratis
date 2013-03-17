@@ -10,24 +10,26 @@
 
 (defn respond-master
   "Routes payload to the master in pool for response"
-  [payload]
-  (log/info "Routing to master:" (:cmd payload))
-  (respond (:ch payload) (:cmd payload)))
+  [{cmd :cmd ch :ch pool :pool}]
+  (log/info "Routing to master:" cmd)
+  (respond ch cmd))
 
 (defn respond-slave-eligible
   "Routes payload to a redis server for response"
-  [payload]
-  (log/info "Routing anywhere:" (:cmd payload))
-  (respond (:ch payload) (:cmd payload)))
+  [{cmd :cmd ch :ch pool :pool}]
+  (log/info "Routing anywhere:" cmd)
+  (respond ch cmd))
 
-(defn redis-handler
-  "Responsible for listening for commands and sending to the proper machine"
-  [ch client-info]
-  (let [master-only (lamina.core/channel)
-        slave-eligible (lamina.core/channel)]
-    (lamina.core/receive-all master-only respond-master)
-    (lamina.core/receive-all slave-eligible respond-slave-eligible)
-    (lamina.core/receive-all ch
-                             #(if (redis/master-only-command %)
-                                (lamina.core/enqueue master-only {:cmd % :ch ch})
-                                (lamina.core/enqueue slave-eligible {:cmd % :ch ch})))))
+(defn create-redis-handler
+  "Returns a function that is setup to listen for commands"
+  [pool]
+  (fn [ch client-info]
+    (let [master-only (lamina.core/channel)
+          slave-eligible (lamina.core/channel)]
+      (lamina.core/receive-all master-only respond-master)
+      (lamina.core/receive-all slave-eligible respond-slave-eligible)
+      (lamina.core/receive-all ch (fn [cmd]
+                                    (let [payload {:cmd cmd :ch ch :pool pool}]
+                                      (if (redis/master-only-command cmd)
+                                        (respond-master payload)
+                                        (respond-slave-eligible payload))))))))
