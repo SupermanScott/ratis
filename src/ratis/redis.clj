@@ -127,7 +127,27 @@
       (if (= 1 (count response)) (lamina.core/enqueue receiver (first response))
           (lamina.core/enqueue receiver response))))))
 
+(defn send-to-redis
+  "Sends the command to the specified host and returns the response"
+  [host port cmd]
+  (log/info "Received command" cmd)
+  (let [ch (lamina.core/wait-for-result
+            (aleph.tcp/tcp-client {:host host :port port :frame redis-codec}))]
+    (lamina.core/enqueue ch cmd)
+    (let [response [(lamina.core/wait-for-message ch)]]
+      (log/info "Command processed" cmd)
+      (lamina.core/close ch)
+      (if (= 1 (count response)) (first response)
+          response))))
+
+(def info-cmd [:multi-bulk [[:bulk "info"]]])
+
 (defn query-server-state
   "Returns the map of the server's current state"
   [host port]
-  nil)
+  (let [response (send-to-redis host port info-cmd)
+        info-string (second response)
+        status (map #(assoc status (keyword (first %)) (second %))
+                    (map #(clojure.string/split % #":") (re-seq #"\w+:\w+" info-string)
+                         ))]
+    status))
