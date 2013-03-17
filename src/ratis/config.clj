@@ -49,6 +49,8 @@
       (. Thread (sleep (+ 1000 (rand-int 85)))))
   (when true
     (send-off *agent* #'update-server-state))
-  (merge server
-         (dorun (redis/query-server-state (:host server) (:port server)))
-         {:last_update (System/currentTimeMillis)}))
+  (let [redis-response (redis/query-server-state (:host server) (:port server))
+        update-state (merge server
+                            redis-response
+                            {:last_update (System/currentTimeMillis)})]
+    update-state))

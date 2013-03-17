@@ -149,4 +149,4 @@
         final-status (map #(assoc status (keyword (first %)) (second %))
                     (map #(clojure.string/split % #":") (re-seq #"\w+:\w+" info-string)
                          ))]
-    final-status))
+    (reduce merge final-status)))

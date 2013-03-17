@@ -12,13 +12,17 @@
   "Routes payload to the master in pool for response"
   [{cmd :cmd ch :ch pool :pool}]
   (log/info "Routing to master:" cmd)
-  (respond ch cmd))
+  (let [all-servers (map deref (:servers pool))
+        server (first (filter #(= "master" (:role %)) all-servers))]
+    (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
 
 (defn respond-slave-eligible
   "Routes payload to a redis server for response"
   [{cmd :cmd ch :ch pool :pool}]
   (log/info "Routing anywhere:" cmd)
-  (respond ch cmd))
+  (let [all-servers (map deref (:servers pool))
+        server (rand-nth all-servers)]
+    (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
 
 (defn create-redis-handler
   "Returns a function that is setup to listen for commands"
