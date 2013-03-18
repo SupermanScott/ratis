@@ -33,8 +33,8 @@
         server_failure_limit (:server_failure_limit pool-map)
         pool (->Pool server_retry_timeout server_failure_limit servers)
         config {:port (:port pool-map) :frame redis/redis-codec}]
-    (aleph.tcp/start-tcp-server (routing/create-redis-handler pool) config)
     (dorun servers)
+    (aleph.tcp/start-tcp-server (routing/create-redis-handler pool) config)
     pool))
 
 (defn start-handlers
