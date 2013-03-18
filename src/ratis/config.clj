@@ -47,7 +47,7 @@
   "Queries the *agent* server for its current state and updates itself"
   [server]
   (when (not= 0 (:last_update server))
-      (. Thread (sleep (+ 1000 (rand-int 85)))))
+      (. Thread (sleep (+ 10 (rand-int 85)))))
   (when true
     (send-off *agent* #'update-server-state))
   (let [redis-response (redis/query-server-state (:host server) (:port server))
