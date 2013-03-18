@@ -15,7 +15,7 @@
   "Routes payload to the master in pool for response"
   [{cmd :cmd ch :ch pool :pool}]
   (log/info "Routing to master:" cmd)
-  (let [all-servers (map deref (:servers pool))
+  (let [all-servers (map deref (filter active-server (:servers pool)))
         server (first (filter #(= "master" (:role %)) all-servers))]
     (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
 
