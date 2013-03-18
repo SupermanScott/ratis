@@ -147,6 +147,6 @@
         info-string (second response)
         status {}
         final-status (map #(assoc status (keyword (first %)) (second %))
-                    (map #(clojure.string/split % #":") (re-seq #"\w+:\w+" info-string)
-                         ))]
+                          (map #(clojure.string/split % #":") (re-seq #"\w+:\w+" info-string)
+                               ))]
     (reduce merge final-status)))

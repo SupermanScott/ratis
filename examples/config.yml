@@ -6,6 +6,8 @@ alpha-pool:
     - host: localhost
       port: 6379
       priority: 1
+    - host: localhost
+      port: 7777
 beta-pool:
   port: 10001
   server_retry_timeout: 2000

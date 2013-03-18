@@ -20,7 +20,7 @@
   "Routes payload to a redis server for response"
   [{cmd :cmd ch :ch pool :pool}]
   (log/info "Routing anywhere:" cmd)
-  (let [all-servers (map deref (:servers pool))
+  (let [all-servers (map deref (filter #(not (agent-error %)) (:servers pool)))
         server (rand-nth all-servers)]
     (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
 

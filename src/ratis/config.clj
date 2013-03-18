@@ -3,13 +3,13 @@
             [aleph.tcp]
             [ratis.routing :as routing]
             [clojure.tools.logging :as log]
-            [ratis.redis :as redis]
-            ))
+            [ratis.redis :as redis]))
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
 (defrecord Server [host port priority last_update])
 
 (declare update-server-state)
+(declare server-down)
 
 (defn generate-config
   "Generate a configuration map from a file"
@@ -20,6 +20,7 @@
   [host port priority]
   (let [server-value (->Server host port priority 0)
         agent-var (agent server-value)]
+    (set-error-handler! agent-var server-down)
     (send-off agent-var update-server-state)
     agent-var))
 
@@ -53,4 +54,10 @@
         update-state (merge server
                             redis-response
                             {:last_update (System/currentTimeMillis)})]
-    update-state))
+    update-state)
+)
+
+(defn server-down
+  "Error handler function for the server agent"
+  [server-agent ex]
+  (log/error "Agent threw exception" server-agent ex))
