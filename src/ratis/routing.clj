@@ -4,10 +4,12 @@
    [clojure.tools.logging :as log]
    [ratis.redis :as redis]))
 
-(defn respond
-  [ch cmd]
-  (redis/send-to-redis-and-respond "localhost" 6379 cmd ch))
-
+(defn active-server
+  "Returns true if the agent server is active and alive for queries"
+  [server]
+  (and (not (agent-error server))
+       (> (:last_update @server) 0)
+       true))
 (defn respond-master
   "Routes payload to the master in pool for response"
   [{cmd :cmd ch :ch pool :pool}]
@@ -20,7 +22,7 @@
   "Routes payload to a redis server for response"
   [{cmd :cmd ch :ch pool :pool}]
   (log/info "Routing anywhere:" cmd)
-  (let [all-servers (map deref (filter #(not (agent-error %)) (:servers pool)))
+  (let [all-servers (map deref (filter active-server (:servers pool)))
         server (rand-nth all-servers)]
     (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
 

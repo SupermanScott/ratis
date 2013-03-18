@@ -60,4 +60,6 @@
 (defn server-down
   "Error handler function for the server agent"
   [server-agent ex]
-  (log/error "Agent threw exception" server-agent ex))
+  (log/error "Agent threw exception" server-agent ex)
+  (restart-agent server-agent (merge @server-agent {:last_update 0}) :clear-actions true)
+  (send-off server-agent update-server-state))
