@@ -3,7 +3,8 @@
             [aleph.tcp]
             [ratis.routing :as routing]
             [clojure.tools.logging :as log]
-            [ratis.redis :as redis]))
+            [ratis.redis :as redis])
+  (:import (java.net ConnectException)))
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
 (defrecord Server [host port priority last_update])
@@ -50,12 +51,13 @@
       (. Thread (sleep (+ 10 (rand-int 85)))))
   (when true
     (send-off *agent* #'update-server-state))
-  (let [redis-response (redis/query-server-state (:host server) (:port server))
-        update-state (merge server
-                            redis-response
-                            {:last_update (System/currentTimeMillis)})]
-    update-state)
-)
+  (try
+    (let [redis-response (redis/query-server-state (:host server) (:port server))
+          update-state (merge server
+                              redis-response
+                              {:last_update (System/currentTimeMillis)})]
+      update-state)
+    (catch ConnectException ce (assoc server :last_update 0))))
 
 (defn server-down
   "Error handler function for the server agent"
