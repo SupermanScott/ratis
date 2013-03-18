@@ -55,9 +55,10 @@
     (let [redis-response (redis/query-server-state (:host server) (:port server))
           update-state (merge server
                               redis-response
-                              {:last_update (System/currentTimeMillis)})]
+                              {:last_update (System/currentTimeMillis)
+                               :down false})]
       update-state)
-    (catch ConnectException ce (assoc server :last_update 0))))
+    (catch ConnectException ce (assoc server :down true))))
 
 (defn server-down
   "Error handler function for the server agent"

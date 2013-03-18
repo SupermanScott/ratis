@@ -9,6 +9,7 @@
   [server]
   (and (not (agent-error server))
        (> (:last_update @server) 0)
+       (not (:down @server))
        true))
 (defn respond-master
   "Routes payload to the master in pool for response"
