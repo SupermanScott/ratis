@@ -34,15 +34,16 @@
         server_failure_limit (:server_failure_limit pool-map)
         pool (->Pool server_retry_timeout server_failure_limit servers)
         config {:port (:port pool-map) :frame redis/redis-codec}]
-    (dorun servers)
-    (aleph.tcp/start-tcp-server (routing/create-redis-handler pool) config)
-    pool))
+    (doall servers)
+    (assoc pool :connection (aleph.tcp/start-tcp-server
+                             (routing/create-redis-handler pool) config))))
 
 (defn start-handlers
   "Starts the handlers defined in the configuration file in path"
   [path]
+  (log/info "starting up with" path)
   (let [config (generate-config path)]
-    (map #(start-handler (% config)) (keys config))))
+    (doall (map #(start-handler (% config)) (keys config)))))
 
 (defn update-server-state
   "Queries the *agent* server for its current state and updates itself"
@@ -66,3 +67,7 @@
   (log/error "Agent threw exception" server-agent ex)
   (restart-agent server-agent (merge @server-agent {:last_update 0}) :clear-actions true)
   (send-off server-agent update-server-state))
+
+(defn stop-all-pools
+  [pools]
+  (doall (map #((->> % :connection)) pools)))
