@@ -9,5 +9,5 @@
 (defn -main
   "Start up the proxy server"
   [& args]
-  (let [running-pools (config/start-handlers "examples/config.yml")]
+  (let [running-pools (config/start-pools "examples/config.yml")]
     (log/info "Running" (count running-pools))))
