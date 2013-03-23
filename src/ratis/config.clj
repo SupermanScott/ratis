@@ -7,7 +7,7 @@
   (:import (java.net ConnectException)))
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
-(defrecord Server [host port priority last_update])
+(defrecord Server [host port priority last_update stopping])
 
 (declare update-server-state)
 (declare server-down)
@@ -19,7 +19,7 @@
 
 (defn create-server
   [host port priority]
-  (let [server-value (->Server host port priority 0)
+  (let [server-value (->Server host port priority 0 false)
         agent-var (agent server-value)]
     (set-error-handler! agent-var server-down)
     (send-off agent-var update-server-state)
@@ -50,7 +50,7 @@
   [server]
   (when (not= 0 (:last_update server))
       (. Thread (sleep (+ 10 (rand-int 85)))))
-  (when true
+  (when (not (:stopping server))
     (send-off *agent* #'update-server-state))
   (try
     (let [redis-response (redis/query-server-state (:host server) (:port server))
@@ -68,6 +68,12 @@
   (restart-agent server-agent (merge @server-agent {:last_update 0}) :clear-actions true)
   (send-off server-agent update-server-state))
 
+(defn stop-server
+  "Agent function that marks the server as stopped"
+  [server]
+  (assoc server :stopping true))
+
 (defn stop-all-pools
   [pools]
+  (doall (map #(send-off % #'stop-server) (apply concat (map :servers pools))))
   (doall (map #((->> % :connection)) pools)))
