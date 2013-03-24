@@ -11,6 +11,7 @@
        (> (:last_update @server) 0)
        (not (:down @server))
        true))
+
 (defn respond-master
   "Routes payload to the master in pool for response"
   [{cmd :cmd ch :ch pool :pool}]
