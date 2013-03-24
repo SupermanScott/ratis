@@ -16,6 +16,11 @@
        (not (:down @server))
        true))
 
+(defn least-loaded
+  "Returns the server that has the least load"
+  [servers]
+  (first (sort-by :cpu_delta servers)))
+
 (defn respond-master
   "Routes payload to the master in pool for response"
   [{cmd :cmd ch :ch pool :pool}]
@@ -29,7 +34,7 @@
   [{cmd :cmd ch :ch pool :pool}]
   (log/info "Routing anywhere:" cmd)
   (let [all-servers (map deref (filter active-server (:servers pool)))
-        server (rand-nth all-servers)]
+        server (least-loaded all-servers)]
     (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
 
 (defn create-redis-handler

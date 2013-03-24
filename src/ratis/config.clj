@@ -7,7 +7,7 @@
   (:import (java.net ConnectException)))
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
-(defrecord Server [host port priority last_update stopping])
+(defrecord Server [host port priority last_update stopping used_cpu_user])
 
 (declare update-server-state)
 (declare server-down)
@@ -19,7 +19,7 @@
 
 (defn create-server
   [host port priority]
-  (let [server-value (->Server host port priority 0 false)
+  (let [server-value (->Server host port priority 0 false "0")
         agent-var (agent server-value)]
     (set-error-handler! agent-var server-down)
     (send-off agent-var update-server-state)
@@ -57,7 +57,12 @@
           update-state (merge server
                               redis-response
                               {:last_update (System/currentTimeMillis)
-                               :down false})]
+                               :down false
+                               :cpu_delta (-
+                                           (Integer/parseInt
+                                            (:used_cpu_user redis-response))
+                                           (Integer/parseInt
+                                            (:used_cpu_user server)))})]
       update-state)
     (catch ConnectException ce (assoc server :down true))))
 
@@ -65,7 +70,8 @@
   "Error handler function for the server agent"
   [server-agent ex]
   (log/error "Agent threw exception" server-agent ex)
-  (restart-agent server-agent (merge @server-agent {:last_update 0}) :clear-actions true)
+  (restart-agent server-agent
+                 (merge @server-agent {:last_update 0}) :clear-actions true)
   (send-off server-agent update-server-state))
 
 (defn stop-server
