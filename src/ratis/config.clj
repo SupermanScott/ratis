@@ -8,7 +8,7 @@
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
 (defrecord Server [host port priority last_update stopping used_cpu_user
-                   failure_count failure_limit])
+                   failure_count failure_limit healthcheck_milliseconds])
 
 (declare update-server-state)
 (declare server-down)
@@ -19,8 +19,10 @@
   (yaml/parse-string (slurp path)))
 
 (defn create-server
-  [{host :host port :port priority :priority failure_limit :failure_limit}]
-  (let [server-value (->Server host port priority 0 false "0" 0 failure_limit)
+  [{host :host port :port priority :priority failure_limit :failure_limit
+    healthcheck_milliseconds :healthcheck_milliseconds}]
+  (let [server-value (->Server host port priority 0 false "0" 0 failure_limit
+                               healthcheck_milliseconds)
         agent-var (agent server-value)]
     (set-error-handler! agent-var server-down)
     (send-off agent-var update-server-state)
@@ -50,7 +52,10 @@
   "Queries the *agent* server for its current state and updates itself"
   [server]
   (when (not= 0 (:last_update server))
-      (. Thread (sleep (+ 10 (rand-int 85)))))
+    (. Thread (sleep (min (+ (* (+ 1 (:failure_count server))
+                                (:healthcheck_milliseconds server))
+                             (rand-int 85))
+                          30000))))
   (when (not (:stopping server))
     (send-off *agent* #'update-server-state))
   (try

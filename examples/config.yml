@@ -5,9 +5,11 @@ alpha-pool:
       port: 6379
       priority: 1
       failure_limit: 3
+      healthcheck_milliseconds: 120
     - host: localhost
       port: 7777
       failure_limit: 2
+      healthcheck_milliseconds: 180
 beta-pool:
   port: 10001
   servers:
@@ -15,3 +17,4 @@ beta-pool:
       port: 6379
       priority: 1
       failure_limit: 1
+      healthcheck_milliseconds: 180
