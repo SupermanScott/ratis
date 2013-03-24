@@ -8,7 +8,11 @@
   "Returns true if the agent server is active and alive for queries"
   [server]
   (and (not (agent-error server))
-       (> (:last_update @server) 0)
+       (< 0 (:last_update @server))
+       (not= 0 (:loading @server))
+       (or
+        (= nil (:master_sync_in_progress @server))
+        (= 0 (:master_sync_in_progress @server)))
        (not (:down @server))
        true))
 

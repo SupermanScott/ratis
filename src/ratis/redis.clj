@@ -117,7 +117,7 @@
 (defn send-to-redis-and-respond
   "Sends the command to the specified host and returns the response"
   [host port cmd receiver]
-  (log/info "Received command" cmd)
+  (log/info "Received command" cmd "sending to" host port)
   (let [ch (lamina.core/wait-for-result
             (aleph.tcp/tcp-client {:host host :port port :frame redis-codec}))]
     (lamina.core/enqueue ch cmd)
