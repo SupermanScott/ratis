@@ -9,21 +9,28 @@
 (def pools (atom nil))
 (def config-file (atom nil))
 
-(defn reload-pools
+(declare stop!)
+
+(defn reload-pools!
   "Reloads the pools based on the current config file"
   []
   (when @pools
-    (config/stop-all-pools @pools))
+    (stop!))
   (reset! pools (config/start-pools @config-file)))
 
-(defn start-up
+(defn start-up!
+  "Startup pools based on the configuration"
   [file-path]
   (reset! config-file file-path)
-  (reload-pools))
+  (reload-pools!))
+
+(defn stop!
+  "Stop current pools"
+  []
+  (config/stop-all-pools @pools))
 
 (defn -main
   "Start up the proxy server"
   [& args]
-  (reset! config-file "examples/config.yml")
-  (reload-pools)
+  (start-up! "examples/config.yml")
   (log/info "Running" (count @pools)))
