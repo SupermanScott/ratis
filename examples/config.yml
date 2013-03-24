@@ -1,18 +1,17 @@
 alpha-pool:
   port: 10000
-  server_retry_timeout: 2000
-  server_failure_limit: 1
   servers:
     - host: localhost
       port: 6379
       priority: 1
+      failure_limit: 3
     - host: localhost
       port: 7777
+      failure_limit: 2
 beta-pool:
   port: 10001
-  server_retry_timeout: 2000
-  server_failure_limit: 1
   servers:
     - host: localhost
       port: 6379
       priority: 1
+      failure_limit: 1

@@ -7,7 +7,8 @@
   (:import (java.net ConnectException)))
 
 (defrecord Pool [server_retry_timeout server_failure_limit servers])
-(defrecord Server [host port priority last_update stopping used_cpu_user])
+(defrecord Server [host port priority last_update stopping used_cpu_user
+                   failure_count failure_limit])
 
 (declare update-server-state)
 (declare server-down)
@@ -18,8 +19,8 @@
   (yaml/parse-string (slurp path)))
 
 (defn create-server
-  [host port priority]
-  (let [server-value (->Server host port priority 0 false "0")
+  [{host :host port :port priority :priority failure_limit :failure_limit}]
+  (let [server-value (->Server host port priority 0 false "0" 0 failure_limit)
         agent-var (agent server-value)]
     (set-error-handler! agent-var server-down)
     (send-off agent-var update-server-state)
@@ -28,7 +29,7 @@
 (defn start-handler
   "Starts up a handler for a pool by creating the pool and servers"
   [pool-map]
-  (let [servers (map #(create-server (:host %) (:port %) (get % :priority 1))
+  (let [servers (map #(create-server %)
                      (get pool-map :servers []))
         server_retry_timeout (:server_retry_timeout pool-map)
         server_failure_limit (:server_failure_limit pool-map)
@@ -58,14 +59,22 @@
                               redis-response
                               {:last_update (System/currentTimeMillis)
                                :down false
+                               :failure_count 0
                                :cpu_delta (-
                                            (Integer/parseInt
                                             (:used_cpu_user redis-response))
                                            (Integer/parseInt
                                             (:used_cpu_user server)))})]
       update-state)
-    (catch ConnectException ce (assoc server :down true))))
-
+    (catch ConnectException ce
+      (let [down-server (assoc server :failure_count
+                               (inc (:failure_count server)))]
+      (log/error "Server" (:host down-server) (:port down-server) "is down"
+                 (:failure_count down-server))
+      (if (<= (:failure_limit down-server) (:failure_count down-server))
+        (assoc down-server :down true)
+        down-server))))
+)
 (defn server-down
   "Error handler function for the server agent"
   [server-agent ex]
