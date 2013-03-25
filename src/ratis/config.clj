@@ -6,9 +6,10 @@
             [ratis.redis :as redis])
   (:import (java.net ConnectException)))
 
-(defrecord Pool [server_retry_timeout server_failure_limit servers])
+(defrecord Pool [name servers])
 (defrecord Server [host port priority last_update stopping used_cpu_user
-                   failure_count failure_limit healthcheck_milliseconds])
+                   failure_count failure_limit healthcheck_milliseconds
+                   pool-name])
 
 (declare update-server-state)
 (declare server-down)
@@ -20,9 +21,10 @@
 
 (defn create-server
   [{host :host port :port priority :priority failure_limit :failure_limit
-    healthcheck_milliseconds :healthcheck_milliseconds}]
+    healthcheck_milliseconds :healthcheck_milliseconds}
+   pool-name]
   (let [server-value (->Server host port priority 0 false "0" 0 failure_limit
-                               healthcheck_milliseconds)
+                               healthcheck_milliseconds pool-name)
         agent-var (agent server-value)]
     (set-error-handler! agent-var server-down)
     (send-off agent-var update-server-state)
@@ -31,11 +33,10 @@
 (defn start-handler
   "Starts up a handler for a pool by creating the pool and servers"
   [pool-map]
-  (let [servers (map #(create-server %)
+  (let [servers (map #(create-server % (:name pool-map))
                      (get pool-map :servers []))
-        server_retry_timeout (:server_retry_timeout pool-map)
-        server_failure_limit (:server_failure_limit pool-map)
-        pool (->Pool server_retry_timeout server_failure_limit servers)
+        name (:name pool-map)
+        pool (->Pool name servers)
         config {:port (:port pool-map) :frame redis/redis-codec}]
     (doall servers)
     (assoc pool :connection (aleph.tcp/start-tcp-server
@@ -46,7 +47,8 @@
   [path]
   (log/info "starting up with" path)
   (let [config (generate-config path)]
-    (doall (map #(start-handler (% config)) (keys config)))))
+    (doall (map #(start-handler (assoc (% config) :name (name %)))
+                                (keys config)))))
 
 (defn update-server-state
   "Queries the *agent* server for its current state and updates itself"
