@@ -132,24 +132,27 @@
   [cmd]
   (contains? #{"EXEC" "DISCARD"} (->> cmd second first second str/upper-case)))
 
+(defn create-redis-connection
+  [host port]
+  (lamina.core/wait-for-result
+   (aleph.tcp/tcp-client {:host host :port port :frame redis-codec})))
+
 (defn send-to-redis-and-respond
   "Sends the command to the specified host and returns the response"
   [host port cmd receiver]
   (log/info "Received command" cmd "sending to" host port)
-  (let [ch (lamina.core/wait-for-result
-            (aleph.tcp/tcp-client {:host host :port port :frame redis-codec}))]
-    (lamina.core/enqueue ch cmd)
-    (lamina.core/receive ch (fn [response]
+  (let [redis-connection (create-redis-connection host port)]
+    (lamina.core/enqueue redis-connection cmd)
+    (lamina.core/receive redis-connection (fn [response]
       (log/info "Command processed" cmd)
-      (lamina.core/close ch)
+      (lamina.core/close redis-connection)
       (if (= 1 (count response)) (lamina.core/enqueue receiver (first response))
           (lamina.core/enqueue receiver response))))))
 
 (defn send-to-redis
   "Sends the command to the specified host and returns the response"
   [host port cmd]
-  (let [ch (lamina.core/wait-for-result
-            (aleph.tcp/tcp-client {:host host :port port :frame redis-codec}))]
+  (let [ch (create-redis-connection host port)]
     (lamina.core/enqueue ch cmd)
     (let [response [(lamina.core/wait-for-message ch)]]
       (lamina.core/close ch)
