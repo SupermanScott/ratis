@@ -23,7 +23,7 @@
 
 (defn respond-master
   "Routes payload to the master in pool for response"
-  [{cmd :cmd ch :ch pool :pool}]
+  [cmd ch pool]
   (log/info "Routing to master:" cmd)
   (let [all-servers (map deref (filter active-server (:servers pool)))
         server (first (filter #(= "master" (:role %)) all-servers))]
@@ -31,7 +31,7 @@
 
 (defn respond-slave-eligible
   "Routes payload to a redis server for response"
-  [{cmd :cmd ch :ch pool :pool}]
+  [cmd ch pool]
   (log/info "Routing anywhere:" cmd)
   (let [all-servers (map deref (filter active-server (:servers pool)))
         server (least-loaded all-servers)]
@@ -47,7 +47,7 @@
       (lamina.core/receive-all master-only respond-master)
       (lamina.core/receive-all slave-eligible respond-slave-eligible)
       (lamina.core/receive-all ch (fn [cmd]
-                                    (let [payload {:cmd cmd :ch ch :pool pool}]
-                                      (if (redis/master-only-command cmd)
-                                        (respond-master payload)
-                                        (respond-slave-eligible payload))))))))
+                                    (if (redis/master-only-command? cmd)
+                                        (respond-master cmd ch pool)
+                                        (respond-slave-eligible cmd ch pool)))))
+    ))
