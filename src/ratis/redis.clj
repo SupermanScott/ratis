@@ -47,6 +47,14 @@
 
 (def redis-codec (create-redis-codec :utf-8))
 
+(def advanced-commands #{
+                         "DISCARD"
+                         "EXEC"
+                         "MULTI"
+                         "UNWATCH"
+                         "WATCH"
+                         })
+
 (def master-only #{
                    "APPEND"
                    "BGREWRITEAOF"
@@ -109,10 +117,20 @@
                    "ZREMRANGEBYSCORE"
                    "ZUNIONSTORE"})
 
-(defn master-only-command
+(defn master-only-command?
   "Returns true / false if the command is for master only"
   [cmd]
   (contains? master-only (->> cmd second first second str/upper-case)))
+
+(defn advanced-command?
+  "Returns true / false if the command is an advanced command"
+  [cmd]
+  (contains? advanced-commands (->> cmd second first second str/upper-case)))
+
+(defn finished-transaction?
+  "Returns true when the command is the final one of a transaction"
+  [cmd]
+  (contains? #{"EXEC" "DISCARD"} (->> cmd second first second str/upper-case)))
 
 (defn send-to-redis-and-respond
   "Sends the command to the specified host and returns the response"

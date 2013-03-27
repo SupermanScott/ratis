@@ -9,7 +9,7 @@ alpha-pool:
     - host: localhost
       port: 7777
       failure_limit: 2
-      healthcheck_milliseconds: 180
+      healthcheck_milliseconds: 120
 beta-pool:
   port: 10001
   servers:
