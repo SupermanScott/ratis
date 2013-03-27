@@ -12,7 +12,7 @@
        (not= 0 (:loading @server))
        (or
         (= nil (:master_sync_in_progress @server))
-        (= 0 (:master_sync_in_progress @server)))
+        (= 0 (Integer/parseInt (:master_sync_in_progress @server))))
        (not (:down @server))
        true))
 
@@ -35,6 +35,7 @@
   (log/info "Routing anywhere:" cmd)
   (let [all-servers (map deref (filter active-server (:servers pool)))
         server (least-loaded all-servers)]
+    (log/info cmd "can be sent to" (count all-servers) "for" (:name pool))
     (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
 
 (defn create-redis-handler
