@@ -139,15 +139,17 @@
 
 (defn send-to-redis-and-respond
   "Sends the command to the specified host and returns the response"
-  [host port cmd receiver]
-  (log/info "Received command" cmd "sending to" host port)
-  (let [redis-connection (create-redis-connection host port)]
-    (lamina.core/enqueue redis-connection cmd)
-    (lamina.core/receive redis-connection (fn [response]
-      (log/info "Command processed" cmd)
-      (lamina.core/close redis-connection)
-      (if (= 1 (count response)) (lamina.core/enqueue receiver (first response))
-          (lamina.core/enqueue receiver response))))))
+  [redis-connection cmd receiver]
+  (log/info "Received command" cmd)
+  (lamina.core/enqueue redis-connection cmd)
+  (lamina.core/receive redis-connection (fn [response]
+                                          (log/info "Command processed" cmd)
+                                          (lamina.core/close redis-connection)
+                                          (if (= 1 (count response))
+                                            (lamina.core/enqueue receiver
+                                                                 (first response))
+                                              (lamina.core/enqueue receiver
+                                                                   response)))))
 
 (defn send-to-redis
   "Sends the command to the specified host and returns the response"

@@ -27,7 +27,8 @@
   (log/info "Routing to master:" cmd)
   (let [all-servers (map deref (filter active-server (:servers pool)))
         server (first (filter #(= "master" (:role %)) all-servers))]
-    (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
+    (redis/send-to-redis-and-respond
+     (redis/create-redis-connection (:host server) (:port server)) cmd ch)))
 
 (defn respond-slave-eligible
   "Routes payload to a redis server for response"
@@ -36,7 +37,8 @@
   (let [all-servers (map deref (filter active-server (:servers pool)))
         server (least-loaded all-servers)]
     (log/info cmd "can be sent to" (count all-servers) "for" (:name pool))
-    (redis/send-to-redis-and-respond (:host server) (:port server) cmd ch)))
+    (redis/send-to-redis-and-respond
+     (redis/create-redis-connection (:host server) (:port server)) cmd ch)))
 
 (defn create-redis-handler
   "Returns a function that is setup to listen for commands"
