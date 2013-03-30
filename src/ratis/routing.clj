@@ -44,12 +44,8 @@
   "Returns a function that is setup to listen for commands"
   [pool]
   (fn [ch client-info]
-    (let [master-only (lamina.core/channel)
-          slave-eligible (lamina.core/channel)]
-      (lamina.core/receive-all master-only respond-master)
-      (lamina.core/receive-all slave-eligible respond-slave-eligible)
       (lamina.core/receive-all ch (fn [cmd]
                                     (if (redis/master-only-command? cmd)
-                                        (respond-master cmd ch pool)
-                                        (respond-slave-eligible cmd ch pool)))))
+                                      (respond-master cmd ch pool)
+                                      (respond-slave-eligible cmd ch pool))))
     ))
