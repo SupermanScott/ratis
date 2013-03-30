@@ -40,7 +40,8 @@
         config {:port (:port pool-map) :frame redis/redis-codec}]
     (doall servers)
     (assoc pool :connection (aleph.tcp/start-tcp-server
-                             (routing/create-redis-handler pool) config))))
+                             (routing/create-redis-handler-multiple pool)
+                             config))))
 
 (defn start-pools
   "Starts the handlers in the pools defined in the configuration file in path"

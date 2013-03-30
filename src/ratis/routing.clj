@@ -40,12 +40,17 @@
     (redis/send-to-redis-and-respond
      (redis/create-redis-connection (:host server) (:port server)) cmd ch)))
 
-(defn create-redis-handler
-  "Returns a function that is setup to listen for commands"
+(defn create-redis-handler-multiple
+  "Connects to all servers and returns a function to listen for commands"
   [pool]
   (fn [ch client-info]
-      (lamina.core/receive-all ch (fn [cmd]
-                                    (if (redis/master-only-command? cmd)
-                                      (respond-master cmd ch pool)
-                                      (respond-slave-eligible cmd ch pool))))
-    ))
+    (let [master-channel (lamina.core/filter* redis/master-only-command? ch)
+          slave-channel (lamina.core/filter*
+                          #(not (redis/master-only-command? %)) ch)]
+      (lamina.core/receive-all master-channel
+                               (fn [cmd]
+                                 (respond-master cmd ch pool)))
+      (lamina.core/receive-all slave-channel
+                               (fn [cmd]
+                                 (respond-slave-eligible cmd ch pool)))
+      )))
