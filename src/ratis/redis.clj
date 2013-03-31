@@ -130,7 +130,7 @@
 (defn start-transaction-command?
   "Returns true if the command is the start of a transaction"
   [cmd]
-  (contains? #{"MULTI"} (->> cmd second first second str/upper-case)))
+  (contains? #{"MULTI" "WATCH"} (->> cmd second first second str/upper-case)))
 
 (defn finished-transaction?
   "Returns true when the command is the final one of a transaction"
