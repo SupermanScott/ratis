@@ -53,19 +53,12 @@
 
 (defn in-transaction?
   [client cmd]
-  (and
+  (or
    (:transaction-connection @client)
-   (not (redis/finished-transaction? cmd))
-   (not (redis/start-transaction-command? cmd))))
-
-(defn start-transaction?
-  [client cmd]
-  (redis/start-transaction-command? cmd))
-
-(defn end-transaction?
-  [client cmd]
-  (and (:transaction-connection @client)
-       (redis/finished-transaction? cmd)))
+   (redis/start-transaction-command? cmd)
+   (and
+    (:transaction-connection @client)
+    (redis/finished-transaction? cmd))))
 
 (defn startup-transaction!
   "Starts up the transaction, sends to Redis and updates client state"
@@ -96,21 +89,21 @@
 (defn respond-transaction
   "Sends the command to Redis when in transaction state"
   [cmd ch pool client]
-  (let [redis-connection (:transaction-connection @client)]
-    (log/info "Sending" cmd "in transaction")
-    (lamina.core/enqueue redis-connection cmd)))
+  (if (not (:transaction-connection @client))
+    (startup-transaction! cmd ch pool client)
+    (if (redis/finished-transaction? cmd)
+        (stop-transaction! cmd ch pool client)
+        (let [redis-connection (:transaction-connection @client)]
+          (log/info "Sending" cmd "in transaction")
+          (lamina.core/enqueue redis-connection cmd)))))
 
 (defn create-redis-handler-multiple
   "Connects to all servers and returns a function to listen for commands"
   [pool]
   (fn [ch client-info]
     (let [client (atom client-info)
-          start-transaction-channel (lamina.core/filter*
-                                     (partial start-transaction? client) ch)
           in-transaction-channel (lamina.core/filter*
                                   (partial in-transaction? client) ch)
-          stop-transaction-channel (lamina.core/filter*
-                                    (partial end-transaction? client) ch)
           master-channel (lamina.core/filter* (partial master-only? client) ch)
           slave-channel (lamina.core/filter* (partial slave-eligible? client) ch)]
       (lamina.core/receive-all master-channel
@@ -119,13 +112,7 @@
       (lamina.core/receive-all slave-channel
                                (fn [cmd]
                                  (respond-slave-eligible cmd ch pool)))
-      (lamina.core/receive-all start-transaction-channel
-                               (fn [cmd]
-                                 (startup-transaction! cmd ch pool client)))
       (lamina.core/receive-all in-transaction-channel
                                (fn [cmd]
                                  (respond-transaction cmd ch pool client)))
-      (lamina.core/receive-all stop-transaction-channel
-                               (fn [cmd]
-                                 (stop-transaction! cmd ch pool client)))
       )))
