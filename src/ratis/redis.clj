@@ -7,45 +7,34 @@
    [aleph.tcp]
    [lamina.core]))
 
-;;; a lot of this code is taking from aleph
-(defn string-prefix [count-offset]
-  (gloss.core/prefix (gloss.core/string-integer :ascii :delimiters ["\r\n"] :as-str true)
-          #(if (neg? %) 0 (+ % count-offset))
-          #(if-not % -1 (- % count-offset))))
-
 (def format-byte
   (gloss.core/enum :byte
-        {:error \-
-         :single-line \+
-         :integer \:
-         :bulk \$
-         :multi-bulk \*}))
+    {:error \-
+     :single-line \+
+     :integer \:
+     :bulk \$
+     :multi-bulk \*}))
 
-(defn codec-map [charset]
-  (let [m {:error (gloss.core/string charset :delimiters ["\r\n"])
-           :single-line (gloss.core/string charset :delimiters ["\r\n"])
-           :integer (gloss.core/string-integer :ascii :delimiters ["\r\n"])
-           :bulk (gloss.core/finite-frame (string-prefix 2)
-                                          (gloss.core/string charset
-                                           :suffix "\r\n"))}
-        m (into {}
-                (map
-                 (fn [[k v]] [k (gloss.core/compile-frame [k v])])
-                 m))
-        m (atom m)]
-    (swap! m assoc
-           :multi-bulk (gloss.core/compile-frame
-                        [:multi-bulk
-                         (gloss.core/repeated
-                          (gloss.core/header format-byte #(@m %) first)
-                          :prefix (string-prefix 0))]))
-    @m))
+(gloss.core/defcodec single-line-codec
+  {:type :single-line
+   :message (gloss.core/string :utf-8 :delimiters ["\r\n"])})
 
-(defn create-redis-codec [charset]
-  (let [codecs (codec-map charset)]
-    (gloss.core/compile-frame (gloss.core/header format-byte codecs first))))
+(gloss.core/defcodec error-codec
+  {:type :error
+   :message (gloss.core/string :ascii :delimiters ["\r\n"])})
 
-(def redis-codec (create-redis-codec :utf-8))
+(gloss.core/defcodec integer-codec
+  {:type :integer
+   :value (gloss.core/string-integer :ascii :delimiters ["\r\n"])})
+
+(def codec-mapping
+  {:single-line single-line-codec
+   :error error-codec
+   :integer integer-codec
+   })
+
+(gloss.core/defcodec redis-codec
+  (gloss.core/header format-byte codec-mapping :type))
 
 (def advanced-commands #{
                          "DISCARD"
