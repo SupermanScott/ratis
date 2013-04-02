@@ -7,6 +7,11 @@
    [aleph.tcp]
    [lamina.core]))
 
+(defn string-prefix [count-offset]
+  (gloss.core/prefix (gloss.core/string-integer :ascii :delimiters ["\r\n"] :as-str true)
+    #(if (neg? %) 0 (+ % count-offset))
+    #(if-not % -1 (- % count-offset))))
+
 (def format-byte
   (gloss.core/enum :byte
     {:error \-
@@ -27,14 +32,28 @@
   {:type :integer
    :value (gloss.core/string-integer :ascii :delimiters ["\r\n"])})
 
+(gloss.core/defcodec bulk-codec
+  (gloss.core/finite-frame (string-prefix 2)
+                           {:type :bulk
+                            :value (gloss.core/string :utf-8 :suffix "\r\n")}))
+
 (def codec-mapping
   {:single-line single-line-codec
    :error error-codec
    :integer integer-codec
+   :bulk bulk-codec
    })
 
+(gloss.core/defcodec multi-bulk-codec
+  {:type :multi-bulk
+   :payload (gloss.core/repeated
+             (gloss.core/header format-byte codec-mapping :type)
+             :prefix (string-prefix 0))})
+
 (gloss.core/defcodec redis-codec
-  (gloss.core/header format-byte codec-mapping :type))
+  (gloss.core/header format-byte
+                     (assoc codec-mapping :multi-bulk multi-bulk-codec)
+                     :type))
 
 (def advanced-commands #{
                          "DISCARD"
@@ -106,25 +125,29 @@
                    "ZREMRANGEBYSCORE"
                    "ZUNIONSTORE"})
 
+(defn- find-command
+  [cmd]
+  (->> cmd :payload first :value str/upper-case))
+
 (defn master-only-command?
   "Returns true / false if the command is for master only"
   [cmd]
-  (contains? master-only (->> cmd second first second str/upper-case)))
+  (contains? master-only (find-command cmd)))
 
 (defn advanced-command?
   "Returns true / false if the command is an advanced command"
   [cmd]
-  (contains? advanced-commands (->> cmd second first second str/upper-case)))
+  (contains? advanced-commands (find-command cmd)))
 
 (defn start-transaction-command?
   "Returns true if the command is the start of a transaction"
   [cmd]
-  (contains? #{"MULTI" "WATCH"} (->> cmd second first second str/upper-case)))
+  (contains? #{"MULTI" "WATCH"} (find-command cmd)))
 
 (defn finished-transaction?
   "Returns true when the command is the final one of a transaction"
   [cmd]
-  (contains? #{"EXEC" "DISCARD"} (->> cmd second first second str/upper-case)))
+  (contains? #{"EXEC" "DISCARD"} (find-command cmd)))
 
 (defn create-redis-connection
   [host port]
@@ -155,13 +178,13 @@
       (if (= 1 (count response)) (first response)
           response))))
 
-(def info-cmd [:multi-bulk [[:bulk "info"]]])
+(def info-cmd {:type :multi-bulk :payload [{:type :bulk :value "INFO"}]})
 
 (defn query-server-state
   "Returns the map of the server's current state"
   [host port]
   (let [response (send-to-redis host port info-cmd)
-        info-string (second response)
+        info-string (:value response)
         status {}
         final-status (map #(assoc status (keyword (first %)) (second %))
                           (map #(clojure.string/split % #":") (re-seq #"\w+:\w+" info-string)
