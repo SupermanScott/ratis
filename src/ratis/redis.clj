@@ -65,7 +65,6 @@
                      :type))
 
 (def advanced-commands #{
-                         "DISCARD"
                          "EXEC"
                          "MULTI"
                          "WATCH"
@@ -80,6 +79,7 @@
                    "DECR"
                    "DECRBY"
                    "DEL"
+                   "DISCARD"
                    "EXISTS"
                    "FLUSHDB"
                    "GETSET"
