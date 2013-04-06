@@ -68,7 +68,6 @@
                          "DISCARD"
                          "EXEC"
                          "MULTI"
-                         "UNWATCH"
                          "WATCH"
                          })
 
@@ -126,6 +125,7 @@
                    "SMOVE"
                    "SPOP"
                    "SUNIONSTORE"
+                   "UNWATCH"
                    "ZADD"
                    "ZINCRBY"
                    "ZINTERSTORE"
