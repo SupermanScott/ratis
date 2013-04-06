@@ -32,7 +32,7 @@
   {:type :integer
    :value (gloss.core/string-integer :ascii :delimiters ["\r\n"])})
 
-(gloss.core/defcodec full-bulk-codec
+(gloss.core/defcodec bulk-codec
   (gloss.core/header
    (gloss.core/string-integer :ascii :delimiters ["\r\n"])
    (fn [size]
@@ -50,7 +50,7 @@
   {:single-line single-line-codec
    :error error-codec
    :integer integer-codec
-   :bulk full-bulk-codec
+   :bulk bulk-codec
    })
 
 (gloss.core/defcodec multi-bulk-codec
