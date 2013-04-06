@@ -51,16 +51,8 @@
     (doall (map #(start-handler (assoc (% config) :name (name %)))
                                 (keys config)))))
 
-(defn update-server-state
-  "Queries the *agent* server for its current state and updates itself"
+(defn calc-new-state
   [server]
-  (when (not= 0 (:last_update server))
-    (. Thread (sleep (min (+ (* (+ 1 (:failure_count server))
-                                (:healthcheck_milliseconds server))
-                             (rand-int 85))
-                          30000))))
-  (when (not (:stopping server))
-    (send-off *agent* #'update-server-state))
   (try
     (let [redis-response (redis/query-server-state (:host server) (:port server))
           update-state (merge server
@@ -81,7 +73,19 @@
                  (:failure_count down-server))
       (if (<= (:failure_limit down-server) (:failure_count down-server))
         (assoc down-server :down true)
-        down-server))))
+        down-server)))))
+
+(defn update-server-state
+  "Queries the *agent* server for its current state and updates itself"
+  [server]
+  (when (not= 0 (:last_update server))
+    (. Thread (sleep (min (+ (* (+ 1 (:failure_count server))
+                                (:healthcheck_milliseconds server))
+                             (rand-int 85))
+                          30000))))
+  (when (not (:stopping server))
+    (send-off *agent* #'update-server-state))
+  (calc-new-state server)
 )
 (defn server-down
   "Error handler function for the server agent"
@@ -95,5 +99,5 @@
 
 (defn stop-all-pools
   [pools]
-  (doall (map #(send-off % #'stop-server) (apply concat (map :servers pools))))
+  (doall (map #(if-not (agent-error %) (send-off % #'stop-server)) (apply concat (map :servers pools))))
   (doall (map #((->> % :connection)) pools)))

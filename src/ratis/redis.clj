@@ -32,16 +32,25 @@
   {:type :integer
    :value (gloss.core/string-integer :ascii :delimiters ["\r\n"])})
 
-(gloss.core/defcodec bulk-codec
-  (gloss.core/finite-frame (string-prefix 2)
-                           {:type :bulk
-                            :value (gloss.core/string :utf-8 :suffix "\r\n")}))
+(gloss.core/defcodec full-bulk-codec
+  (gloss.core/header
+   (gloss.core/string-integer :ascii :delimiters ["\r\n"])
+   (fn [size]
+     (if (= -1 size)
+       (gloss.core/compile-frame {:type :bulk :value nil})
+       (gloss.core/compile-frame {:type :bulk :value
+                                  (gloss.core/string :utf-8 :length size :suffix "\r\n")})
+       ))
+   (fn [body]
+     (if (:value body)
+       (count (:value body))
+       -1))))
 
 (def codec-mapping
   {:single-line single-line-codec
    :error error-codec
    :integer integer-codec
-   :bulk bulk-codec
+   :bulk full-bulk-codec
    })
 
 (gloss.core/defcodec multi-bulk-codec
@@ -160,7 +169,7 @@
   (log/info "Received command" cmd)
   (lamina.core/enqueue redis-connection cmd)
   (lamina.core/receive redis-connection (fn [response]
-                                          (log/info "Command processed" cmd)
+                                          (log/info "Command processed" cmd response)
                                           (lamina.core/close redis-connection)
                                           (if (= 1 (count response))
                                             (lamina.core/enqueue receiver
