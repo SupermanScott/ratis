@@ -6,8 +6,12 @@
   :dependencies [[org.clojure/clojure "1.5.0"]
                  [org.clojure/tools.logging "0.2.6"]
                  [clj-yaml "0.4.0"]
+                 [log4j "1.2.17"exclusions [javax.mail/mail
+                                            javax.jms/jms
+                                            com.sun.jdmk/jmxtools
+                                            com.sun.jmx/jmxri]]
                  [aleph "0.3.0-beta7"]]
-  :jvm-opts ["-server" "-XX:+UseConcMarkSweepGC" "-Xmx4g"]
+  :jvm-opts ^replace []
   :test-selectors {:default #(not (some #{:benchmark :redis}
                                         (cons (:tag %) (keys %))))
                    :integration :redis
