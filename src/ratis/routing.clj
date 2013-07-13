@@ -25,7 +25,7 @@
   "Routes payload to the master in pool for response"
   [cmd ch pool]
   (log/info "Routing to master:" cmd)
-  (let [all-servers (map deref (filter active-server (:servers pool)))
+  (let [all-servers (:active-servers pool)
         server (first (filter #(= "master" (:role %)) all-servers))]
     (redis/send-to-redis-and-respond
      (redis/create-redis-connection (:host server) (:port server)) cmd ch)))
@@ -34,7 +34,7 @@
   "Routes payload to a redis server for response"
   [cmd ch pool]
   (log/info "Routing anywhere:" cmd)
-  (let [all-servers (map deref (filter active-server (:servers pool)))
+  (let [all-servers (:active-servers pool)
         server (least-loaded all-servers)]
     (log/info cmd "can be sent to" (count all-servers) "for" (:name pool))
     (redis/send-to-redis-and-respond
@@ -64,7 +64,7 @@
   "Starts up the transaction, sends to Redis and updates client state"
   [cmd ch pool client]
   (log/info "Starting up transaction for" @client)
-  (let [all-servers (map deref (filter active-server (:servers pool)))
+  (let [all-servers (:active-servers pool)
         server (first (filter #(= "master" (:role %)) all-servers))
         redis-connection (redis/create-redis-connection
                           (:host server) (:port server))]
@@ -102,17 +102,19 @@
   [pool]
   (fn [ch client-info]
     (let [client (atom client-info)
+          all-servers (map deref (filter active-server (:servers pool)))
+          updated-pool (assoc pool :active-servers all-servers)
           in-transaction-channel (lamina.core/filter*
                                   (partial in-transaction? client) ch)
           master-channel (lamina.core/filter* (partial master-only? client) ch)
           slave-channel (lamina.core/filter* (partial slave-eligible? client) ch)]
       (lamina.core/receive-all master-channel
                                (fn [cmd]
-                                 (respond-master cmd ch pool)))
+                                 (respond-master cmd ch updated-pool)))
       (lamina.core/receive-all slave-channel
                                (fn [cmd]
-                                 (respond-slave-eligible cmd ch pool)))
+                                 (respond-slave-eligible cmd ch updated-pool)))
       (lamina.core/receive-all in-transaction-channel
                                (fn [cmd]
-                                 (respond-transaction cmd ch pool client)))
+                                 (respond-transaction cmd ch updated-pool client)))
       )))
