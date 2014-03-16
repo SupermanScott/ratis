@@ -1,6 +1,7 @@
 (ns ratis.config
   (:require [clj-yaml.core :as yaml]
             [aleph.tcp]
+            [lamina.core :as lamina]
             [ratis.routing :as routing]
             [clojure.tools.logging :as log]
             [ratis.redis :as redis])
@@ -9,7 +10,7 @@
 (defrecord Pool [name servers])
 (defrecord Server [host port priority last_update stopping used_cpu_user
                    failure_count failure_limit healthcheck_milliseconds
-                   pool-name])
+                   pool-name connection-channel])
 
 (declare update-server-state)
 (declare server-down)
@@ -20,12 +21,24 @@
   (yaml/parse-string (slurp path)))
 
 (defn create-server
-  [{host :host port :port priority :priority failure_limit :failure_limit
-    healthcheck_milliseconds :healthcheck_milliseconds}
+  [{host :host
+    port :port
+    priority :priority
+    failure_limit :failure_limit
+    healthcheck_milliseconds :healthcheck_milliseconds
+    connection-pool-size :connection-pool-size}
    pool-name]
-  (let [server-value (->Server host port priority 0 false "0" 0 failure_limit
-                               healthcheck_milliseconds pool-name)
-        agent-var (agent server-value)]
+  (let [connection-ch (lamina/channel)
+        server-value (->Server host port priority 0 false "0" 0 failure_limit
+                               healthcheck_milliseconds pool-name connection-ch)
+        agent-var (agent server-value)
+        connections (doall (take connection-pool-size (repeatedly
+                                                 (fn []
+                                                   (redis/create-redis-connection
+                                                    host port)))))]
+    (doall (map (fn [connection-channel]
+                  (lamina/enqueue connection-ch connection-channel))
+                connections))
     (set-error-handler! agent-var server-down)
     (send-off agent-var update-server-state)
     agent-var))
@@ -54,7 +67,9 @@
 (defn calc-new-state
   [server]
   (try
-    (let [redis-response (redis/query-server-state (:host server) (:port server))
+    (let [connection-ch (:connection-channel server)
+          redis-connection (lamina/wait-for-message connection-ch)
+          redis-response (redis/query-server-state redis-connection connection-ch)
           update-state (merge server
                               redis-response
                               {:last_update (System/currentTimeMillis)

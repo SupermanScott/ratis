@@ -165,12 +165,13 @@
 
 (defn send-to-redis-and-respond
   "Sends the command to the specified host and returns the response"
-  [redis-connection cmd receiver]
+  [redis-connection cmd receiver recycle-channel]
   (log/info "Received command" cmd)
   (lamina.core/enqueue redis-connection cmd)
   (lamina.core/receive redis-connection (fn [response]
                                           (log/info "Command processed" cmd response)
-                                          (lamina.core/close redis-connection)
+                                          (lamina.core/enqueue
+                                           recycle-channel redis-connection)
                                           (if (= 1 (count response))
                                             (lamina.core/enqueue receiver
                                                                  (first response))
@@ -179,23 +180,22 @@
 
 (defn send-to-redis
   "Sends the command to the specified host and returns the response"
-  [host port cmd]
-  (let [ch (create-redis-connection host port)]
-    (lamina.core/enqueue ch cmd)
-    (let [response [(lamina.core/wait-for-message ch)]]
-      (lamina.core/close ch)
-      (if (= 1 (count response)) (first response)
-          response))))
+  [ch cmd]
+  (lamina.core/enqueue ch cmd)
+  (let [response [(lamina.core/wait-for-message ch)]]
+    (if (= 1 (count response)) (first response)
+        response)))
 
 (def info-cmd {:type :multi-bulk :payload [{:type :bulk :value "INFO"}]})
 
 (defn query-server-state
   "Returns the map of the server's current state"
-  [host port]
-  (let [response (send-to-redis host port info-cmd)
+  [connection recycle-ch]
+  (let [response (send-to-redis connection info-cmd)
         info-string (:value response)
         status {}
         final-status (map #(assoc status (keyword (first %)) (second %))
                           (map #(clojure.string/split % #":") (re-seq #"\w+:\w+" info-string)
                                ))]
+    (lamina.core/enqueue recycle-ch connection)
     (reduce merge final-status)))

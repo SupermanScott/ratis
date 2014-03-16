@@ -26,19 +26,25 @@
   [cmd ch pool]
   (log/info "Routing to master:" cmd)
   (let [all-servers (map deref (filter active-server (:servers pool)))
-        server (first (filter #(= "master" (:role %)) all-servers))]
-    (redis/send-to-redis-and-respond
-     (redis/create-redis-connection (:host server) (:port server)) cmd ch)))
+        server (first (filter #(= "master" (:role %)) all-servers))
+        connection-ch (:connection-channel server)
+        sender-callback (fn [connection]
+                          (redis/send-to-redis-and-respond connection cmd ch
+                                                           connection-ch))]
+    (lamina.core/receive connection-ch sender-callback)))
 
 (defn respond-slave-eligible
   "Routes payload to a redis server for response"
   [cmd ch pool]
   (log/info "Routing anywhere:" cmd)
   (let [all-servers (map deref (filter active-server (:servers pool)))
-        server (least-loaded all-servers)]
+        server (least-loaded all-servers)
+        connection-ch (:connection-channel server)
+        sender-callback (fn [connection]
+                          (redis/send-to-redis-and-respond connection cmd ch
+                                                           connection-ch))]
     (log/info cmd "can be sent to" (count all-servers) "for" (:name pool))
-    (redis/send-to-redis-and-respond
-     (redis/create-redis-connection (:host server) (:port server)) cmd ch)))
+    (lamina.core/receive (:connection-channel server) sender-callback)))
 
 (defn master-only?
   [client cmd]
