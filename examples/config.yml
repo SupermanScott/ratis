@@ -6,10 +6,12 @@ alpha-pool:
       priority: 1
       failure_limit: 3
       healthcheck_milliseconds: 120
+      connection-pool-size: 40
     - host: localhost
       port: 7777
       failure_limit: 2
       healthcheck_milliseconds: 120
+      connection-pool-size: 40
 beta-pool:
   port: 10001
   servers:
@@ -18,3 +20,4 @@ beta-pool:
       priority: 1
       failure_limit: 1
       healthcheck_milliseconds: 180
+      connection-pool-size: 40
